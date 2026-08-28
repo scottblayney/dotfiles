@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 #
-# Description: Install dotfiles by hard linking them into place.
+# Description: Install dotfiles by symlinking them into place.
 #
 # Clone this repo anywhere and run ./setup — it resolves its own location,
 # so there is no hardcoded path to keep in sync.
 #
-# Hard links mean the file in your home directory and the file in this repo
-# are literally the same inode: edit either one and `git status` sees it.
+# Each file in your home directory is a symlink pointing at the copy in this
+# repo, so editing either side edits the same file and `git status` sees it.
 #
-# NOTE: git breaks hard links. `git pull`, `git checkout` and branch switches
-# write a new file and rename it into place, which gives the repo copy a new
-# inode and silently leaves the home copy pointing at the old one. Re-run
-# ./setup after any of those to relink. Re-running is safe and idempotent.
+# Unlike hard links, symlinks survive `git pull`, `git checkout` and branch
+# switches, and they work when the repo and $HOME are on different
+# filesystems. Re-running ./setup is safe and idempotent.
+#
+# The repo must stay where it is: moving it leaves every symlink dangling.
+# Re-run ./setup from the new location to repoint them.
 
 set -euo pipefail
 
@@ -24,7 +26,7 @@ for arg in "$@"; do
     -n | --dry-run) DRY_RUN=1 ;;
     --brew) DO_BREW=1 ;;
     -h | --help)
-      sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^#\s\?//'
+      sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^#\s\?//'
       echo
       echo "Usage: ./setup [--dry-run] [--brew]"
       echo "  -n, --dry-run   show what would change, touch nothing"
@@ -53,23 +55,6 @@ linked=0 skipped=0 backed_up=0
 say() { printf '%s\n' "$*"; }
 run() { [ "$DRY_RUN" -eq 1 ] || "$@"; }
 
-# Hard links cannot cross filesystems. Fail early and clearly rather than
-# emitting one confusing EXDEV per file.
-check_same_fs() {
-  local repo_dev home_dev
-  repo_dev="$(stat -c %d "$REPO")"
-  home_dev="$(stat -c %d "$HOME")"
-  if [ "$repo_dev" != "$home_dev" ]; then
-    cat >&2 <<EOF
-error: $REPO and $HOME are on different filesystems.
-       Hard links cannot cross filesystems. Either move this repo onto the
-       same filesystem as \$HOME, or switch the 'ln -f' below to 'ln -sfn'
-       to use symlinks instead.
-EOF
-    exit 1
-  fi
-}
-
 link_file() {
   local src="$1" dest="$2"
 
@@ -80,19 +65,21 @@ link_file() {
 
   run mkdir -p "$(dirname "$dest")"
 
-  # Already the same inode? Nothing to do.
-  if [ -e "$dest" ] && [ "$(stat -c %i "$src")" = "$(stat -c %i "$dest" 2>/dev/null || echo x)" ]; then
+  # Already pointing at the right file? Nothing to do.
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
     skipped=$((skipped + 1))
     return
   fi
 
   if [ -L "$dest" ]; then
-    # A symlink holds no content of its own — just drop it.
+    # A symlink holds no content of its own — just drop it. This also clears
+    # away links left dangling by moving the repo.
     say "  replacing symlink  $dest"
     run rm -f "$dest"
   elif [ -e "$dest" ]; then
     if cmp -s "$src" "$dest"; then
-      # Same content, just a separate inode. Safe to replace outright.
+      # Same content — either a real duplicate or an old hard link to this
+      # very inode. Either way there is nothing to preserve.
       run rm -f "$dest"
     else
       say "  backing up         $dest -> $dest.bak-$STAMP"
@@ -101,12 +88,10 @@ link_file() {
     fi
   fi
 
-  run ln -f "$src" "$dest"
+  run ln -sfn "$src" "$dest"
   say "  linked             $dest"
   linked=$((linked + 1))
 }
-
-check_same_fs
 
 [ "$DRY_RUN" -eq 1 ] && say "DRY RUN — nothing will be modified" && say ""
 say "Installing dotfiles from $REPO"
@@ -118,8 +103,9 @@ while IFS='|' read -r src dest; do
 done <<<"$MANIFEST"
 
 # Neovim: mirror the whole nvim/ tree into ~/.config/nvim, so adding a plugin
-# spec later needs no edit here. Hidden files are included deliberately
-# (.neoconf.json).
+# spec later needs no edit here. Linking per file rather than symlinking the
+# directory keeps Lazy's generated state in ~/.config/nvim out of the repo.
+# Hidden files are included deliberately (.neoconf.json).
 if [ -d "$REPO/nvim" ]; then
   while IFS= read -r -d '' src; do
     link_file "$src" "$HOME/.config/nvim/${src#"$REPO/nvim/"}"

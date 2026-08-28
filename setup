@@ -1,12 +1,143 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# Description: Install dotfiles by hard linking them into place.
+#
+# Clone this repo anywhere and run ./setup — it resolves its own location,
+# so there is no hardcoded path to keep in sync.
+#
+# Hard links mean the file in your home directory and the file in this repo
+# are literally the same inode: edit either one and `git status` sees it.
+#
+# NOTE: git breaks hard links. `git pull`, `git checkout` and branch switches
+# write a new file and rename it into place, which gives the repo copy a new
+# inode and silently leaves the home copy pointing at the old one. Re-run
+# ./setup after any of those to relink. Re-running is safe and idempotent.
 
-# Description: Link dotfiles to home directory
+set -euo pipefail
 
-mkdir -p ~/.config
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ln -sf ~/dotfiles/bashrc ~/.bashrc
-ln -sf ~/dotfiles/vimrc ~/.vimrc
-ln -sf ~/dotfiles/starship.toml ~/.config/starship.toml
+DRY_RUN=0
+DO_BREW=0
+for arg in "$@"; do
+  case "$arg" in
+    -n | --dry-run) DRY_RUN=1 ;;
+    --brew) DO_BREW=1 ;;
+    -h | --help)
+      sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^#\s\?//'
+      echo
+      echo "Usage: ./setup [--dry-run] [--brew]"
+      echo "  -n, --dry-run   show what would change, touch nothing"
+      echo "      --brew      also run 'brew bundle' against ./brewfile"
+      exit 0
+      ;;
+    *)
+      echo "unknown option: $arg (try --help)" >&2
+      exit 1
+      ;;
+  esac
+done
 
-echo "Dotfiles linked!"
+# Files to link: "<path in repo>|<path to install to>"
+# Everything under nvim/ is handled separately, recursively.
+MANIFEST="
+bashrc|$HOME/.bashrc
+vimrc|$HOME/.vimrc
+tmux.conf|$HOME/.tmux.conf
+starship.toml|$HOME/.config/starship.toml
+"
 
+STAMP="$(date +%Y-%m-%d)"
+linked=0 skipped=0 backed_up=0
+
+say() { printf '%s\n' "$*"; }
+run() { [ "$DRY_RUN" -eq 1 ] || "$@"; }
+
+# Hard links cannot cross filesystems. Fail early and clearly rather than
+# emitting one confusing EXDEV per file.
+check_same_fs() {
+  local repo_dev home_dev
+  repo_dev="$(stat -c %d "$REPO")"
+  home_dev="$(stat -c %d "$HOME")"
+  if [ "$repo_dev" != "$home_dev" ]; then
+    cat >&2 <<EOF
+error: $REPO and $HOME are on different filesystems.
+       Hard links cannot cross filesystems. Either move this repo onto the
+       same filesystem as \$HOME, or switch the 'ln -f' below to 'ln -sfn'
+       to use symlinks instead.
+EOF
+    exit 1
+  fi
+}
+
+link_file() {
+  local src="$1" dest="$2"
+
+  if [ ! -e "$src" ]; then
+    say "  missing in repo, skipping: $src"
+    return
+  fi
+
+  run mkdir -p "$(dirname "$dest")"
+
+  # Already the same inode? Nothing to do.
+  if [ -e "$dest" ] && [ "$(stat -c %i "$src")" = "$(stat -c %i "$dest" 2>/dev/null || echo x)" ]; then
+    skipped=$((skipped + 1))
+    return
+  fi
+
+  if [ -L "$dest" ]; then
+    # A symlink holds no content of its own — just drop it.
+    say "  replacing symlink  $dest"
+    run rm -f "$dest"
+  elif [ -e "$dest" ]; then
+    if cmp -s "$src" "$dest"; then
+      # Same content, just a separate inode. Safe to replace outright.
+      run rm -f "$dest"
+    else
+      say "  backing up         $dest -> $dest.bak-$STAMP"
+      run mv "$dest" "$dest.bak-$STAMP"
+      backed_up=$((backed_up + 1))
+    fi
+  fi
+
+  run ln -f "$src" "$dest"
+  say "  linked             $dest"
+  linked=$((linked + 1))
+}
+
+check_same_fs
+
+[ "$DRY_RUN" -eq 1 ] && say "DRY RUN — nothing will be modified" && say ""
+say "Installing dotfiles from $REPO"
+say ""
+
+while IFS='|' read -r src dest; do
+  [ -z "$src" ] && continue
+  link_file "$REPO/$src" "$dest"
+done <<<"$MANIFEST"
+
+# Neovim: mirror the whole nvim/ tree into ~/.config/nvim, so adding a plugin
+# spec later needs no edit here. Hidden files are included deliberately
+# (.neoconf.json).
+if [ -d "$REPO/nvim" ]; then
+  while IFS= read -r -d '' src; do
+    link_file "$src" "$HOME/.config/nvim/${src#"$REPO/nvim/"}"
+  done < <(find "$REPO/nvim" -type f -print0)
+fi
+
+if [ "$DO_BREW" -eq 1 ]; then
+  say ""
+  if command -v brew >/dev/null 2>&1; then
+    say "Running brew bundle..."
+    run brew bundle --file="$REPO/brewfile"
+  else
+    say "warning: --brew given but brew is not installed; skipping" >&2
+  fi
+fi
+
+say ""
+say "Done. $linked linked, $skipped already current, $backed_up backed up."
+if [ "$backed_up" -gt 0 ]; then
+  say "Backups were saved with the suffix .bak-$STAMP"
+fi

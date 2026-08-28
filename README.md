@@ -12,10 +12,10 @@ cd dotfiles
 
 Clone it anywhere — `setup` resolves its own location, so there is no path to keep in sync. Restart your shell afterwards, or `source ~/.bashrc`.
 
-To also install the packages in `brewfile`:
+To also install any packages from `brewfile` that are missing:
 
 ```sh
-./setup --brew
+./setup --packages
 ```
 
 ## What's here
@@ -27,7 +27,7 @@ To also install the packages in `brewfile`:
 | `tmux.conf` | `~/.tmux.conf` | 1-indexed windows, mouse on, vi copy mode, 25k scrollback, top status bar |
 | `starship.toml` | `~/.config/starship.toml` | Prompt: `➜` character, memory usage module, package module off |
 | `nvim/` | `~/.config/nvim/` | LazyVim, 32 plugins pinned in `lazy-lock.json` |
-| `brewfile` | — | 30 brews, 10 casks, 5 VS Code extensions. Only used with `--brew` |
+| `brewfile` | — | 30 brews, 10 font casks, 87 flatpaks, 5 VS Code extensions. Only used with `--packages` |
 | `setup` | — | The installer |
 
 `nvim/` is mirrored file by file rather than symlinked as a directory, which keeps Lazy's generated state in `~/.config/nvim` out of the repo. Adding a plugin spec under `nvim/lua/plugins/` needs no change to `setup` — just re-run it.
@@ -41,12 +41,32 @@ Every installed file is a **symlink** pointing at its copy in this repo, so edit
 - **Survives git.** `git pull`, `git checkout` and branch switches leave the symlinks intact.
 
 ```
-Usage: ./setup [--dry-run] [--brew]
+Usage: ./setup [options]
   -n, --dry-run   show what would change, touch nothing
-      --brew      also run 'brew bundle' against ./brewfile
+      --packages  install anything in ./brewfile that is missing
+      --brew      alias for --packages
+      --upgrade   implies --packages, and also upgrades outdated packages
+  -y, --yes       do not prompt before installing flatpak/Homebrew
+      --no-link   skip the dotfile linking step
 ```
 
 Use `--dry-run` first on a machine that already has configs you care about — it prints exactly what would be backed up.
+
+## Packages
+
+`brewfile` is a Homebrew Bundle file, and `brew bundle` understands every directive in it — `brew`, `cask`, `tap`, `flatpak` and `vscode` — so `--packages` delegates the installing rather than reimplementing five package managers.
+
+What it adds on top:
+
+- **Only installs what's absent.** It passes `--no-upgrade`, so existing packages are left at their current versions. Use `--upgrade` if you want them moved forward.
+- **A real missing-list.** `./setup --dry-run --packages` prints exactly what would be installed. This is computed against `brew list`, `flatpak list` and `code --list-extensions` rather than from `brew bundle check`, which reports outdated packages as missing too.
+- **Bootstraps prerequisites.** If `flatpak` or Homebrew are absent it offers to install them first — flatpak through the distro's package manager (pacman, apt, dnf, zypper), Homebrew through its official installer. It adds the `flathub` remote if no remote is configured.
+
+Anything needing `sudo` or fetching a remote installer prompts first. `--yes` skips the prompts; `--dry-run` always declines, so a dry run can never install anything.
+
+On image-based distros (Bluefin, Silverblue, Kinoite) `setup` detects `ostree` and won't try to install prerequisites — those images already ship flatpak, and adding packages to the base image is a different operation.
+
+The `vscode` entries need `code` on `PATH`. Without it `brew bundle` skips them, and the dry run says so.
 
 ### When you do need to re-run it
 

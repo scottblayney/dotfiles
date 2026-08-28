@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Description: Install dotfiles by symlinking them into place.
+# Description: Install dotfiles by symlinking them into place, and optionally
+# install any packages from ./brewfile that are not already present.
 #
 # Clone this repo anywhere and run ./setup — it resolves its own location,
 # so there is no hardcoded path to keep in sync.
@@ -8,29 +9,45 @@
 # Each file in your home directory is a symlink pointing at the copy in this
 # repo, so editing either side edits the same file and `git status` sees it.
 #
-# Unlike hard links, symlinks survive `git pull`, `git checkout` and branch
-# switches, and they work when the repo and $HOME are on different
-# filesystems. Re-running ./setup is safe and idempotent.
+# Symlinks survive `git pull`, `git checkout` and branch switches, and work
+# when the repo and $HOME are on different filesystems. Re-running ./setup is
+# safe and idempotent.
 #
 # The repo must stay where it is: moving it leaves every symlink dangling.
 # Re-run ./setup from the new location to repoint them.
+#
+# --packages installs whatever in ./brewfile is missing, bootstrapping flatpak
+# and Homebrew first on distros that lack them. It never upgrades unless asked.
 
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BREWFILE="$REPO/brewfile"
 
 DRY_RUN=0
-DO_BREW=0
+DO_PACKAGES=0
+DO_UPGRADE=0
+ASSUME_YES=0
+DO_LINK=1
 for arg in "$@"; do
   case "$arg" in
     -n | --dry-run) DRY_RUN=1 ;;
-    --brew) DO_BREW=1 ;;
+    --packages | --brew) DO_PACKAGES=1 ;;
+    --upgrade) DO_PACKAGES=1 DO_UPGRADE=1 ;;
+    -y | --yes) ASSUME_YES=1 ;;
+    --no-link) DO_LINK=0 ;;
     -h | --help)
-      sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^#\s\?//'
+      sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^#\s\?//'
       echo
-      echo "Usage: ./setup [--dry-run] [--brew]"
-      echo "  -n, --dry-run   show what would change, touch nothing"
-      echo "      --brew      also run 'brew bundle' against ./brewfile"
+      cat <<'EOF'
+Usage: ./setup [options]
+  -n, --dry-run   show what would change, touch nothing
+      --packages  install anything in ./brewfile that is missing
+      --brew      alias for --packages
+      --upgrade   implies --packages, and also upgrades outdated packages
+  -y, --yes       do not prompt before installing flatpak/Homebrew
+      --no-link   skip the dotfile linking step
+EOF
       exit 0
       ;;
     *)
@@ -40,6 +57,26 @@ for arg in "$@"; do
   esac
 done
 
+STAMP="$(date +%Y-%m-%d)"
+linked=0 skipped=0 backed_up=0
+
+say() { printf '%s\n' "$*"; }
+run() { [ "$DRY_RUN" -eq 1 ] || "$@"; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# Ask before anything that needs sudo or fetches a remote installer. --yes
+# skips the prompt; --dry-run always declines, so a dry run never installs.
+confirm() {
+  [ "$DRY_RUN" -eq 1 ] && return 1
+  [ "$ASSUME_YES" -eq 1 ] && return 0
+  local reply
+  printf '  %s [y/N] ' "$1"
+  read -r reply </dev/tty 2>/dev/null || return 1
+  case "$reply" in [yY] | [yY][eE][sS]) return 0 ;; *) return 1 ;; esac
+}
+
+# ---------------------------------------------------------------- linking ---
+
 # Files to link: "<path in repo>|<path to install to>"
 # Everything under nvim/ is handled separately, recursively.
 MANIFEST="
@@ -48,12 +85,6 @@ vimrc|$HOME/.vimrc
 tmux.conf|$HOME/.tmux.conf
 starship.toml|$HOME/.config/starship.toml
 "
-
-STAMP="$(date +%Y-%m-%d)"
-linked=0 skipped=0 backed_up=0
-
-say() { printf '%s\n' "$*"; }
-run() { [ "$DRY_RUN" -eq 1 ] || "$@"; }
 
 link_file() {
   local src="$1" dest="$2"
@@ -93,37 +124,254 @@ link_file() {
   linked=$((linked + 1))
 }
 
-[ "$DRY_RUN" -eq 1 ] && say "DRY RUN — nothing will be modified" && say ""
-say "Installing dotfiles from $REPO"
-say ""
-
-while IFS='|' read -r src dest; do
-  [ -z "$src" ] && continue
-  link_file "$REPO/$src" "$dest"
-done <<<"$MANIFEST"
-
-# Neovim: mirror the whole nvim/ tree into ~/.config/nvim, so adding a plugin
-# spec later needs no edit here. Linking per file rather than symlinking the
-# directory keeps Lazy's generated state in ~/.config/nvim out of the repo.
-# Hidden files are included deliberately (.neoconf.json).
-if [ -d "$REPO/nvim" ]; then
-  while IFS= read -r -d '' src; do
-    link_file "$src" "$HOME/.config/nvim/${src#"$REPO/nvim/"}"
-  done < <(find "$REPO/nvim" -type f -print0)
-fi
-
-if [ "$DO_BREW" -eq 1 ]; then
+link_dotfiles() {
+  say "Installing dotfiles from $REPO"
   say ""
-  if command -v brew >/dev/null 2>&1; then
-    say "Running brew bundle..."
-    run brew bundle --file="$REPO/brewfile"
-  else
-    say "warning: --brew given but brew is not installed; skipping" >&2
+
+  while IFS='|' read -r src dest; do
+    [ -z "$src" ] && continue
+    link_file "$REPO/$src" "$dest"
+  done <<<"$MANIFEST"
+
+  # Neovim: mirror the whole nvim/ tree into ~/.config/nvim, so adding a plugin
+  # spec later needs no edit here. Linking per file rather than symlinking the
+  # directory keeps Lazy's generated state in ~/.config/nvim out of the repo.
+  # Hidden files are included deliberately (.neoconf.json).
+  if [ -d "$REPO/nvim" ]; then
+    while IFS= read -r -d '' src; do
+      link_file "$src" "$HOME/.config/nvim/${src#"$REPO/nvim/"}"
+    done < <(find "$REPO/nvim" -type f -print0)
   fi
+
+  say ""
+  say "Done. $linked linked, $skipped already current, $backed_up backed up."
+  if [ "$backed_up" -gt 0 ]; then
+    say "Backups were saved with the suffix .bak-$STAMP"
+  fi
+}
+
+# --------------------------------------------------------------- packages ---
+
+# Pull one directive out of the brewfile: entries() brew -> aerc, atuin, ...
+entries() {
+  [ -f "$BREWFILE" ] || return 0
+  awk -v want="$1" '
+    $1 == want {
+      if (match($0, /"[^"]+"/)) print substr($0, RSTART + 1, RLENGTH - 2)
+    }
+  ' "$BREWFILE"
+}
+
+# A tapped formula is written "siderolabs/tap/talosctl" but installs as
+# "talosctl", so compare on the last path segment.
+basename_of() { printf '%s\n' "${1##*/}"; }
+
+detect_pm() {
+  if [ -f /run/ostree-booted ]; then
+    printf 'ostree\n' # Bluefin, Silverblue, Kinoite: image-based, not dnf
+  elif have pacman; then
+    printf 'pacman\n'
+  elif have apt-get; then
+    printf 'apt\n'
+  elif have dnf; then
+    printf 'dnf\n'
+  elif have zypper; then
+    printf 'zypper\n'
+  else
+    printf 'unknown\n'
+  fi
+}
+
+pm_install() {
+  local pm="$1"
+  shift
+  case "$pm" in
+    pacman) run sudo pacman -S --needed --noconfirm "$@" ;;
+    apt) run sudo apt-get update && run sudo apt-get install -y "$@" ;;
+    dnf) run sudo dnf install -y "$@" ;;
+    zypper) run sudo zypper install -y "$@" ;;
+    *) return 1 ;;
+  esac
+}
+
+ensure_flatpak() {
+  local pm="$1"
+  if ! have flatpak; then
+    say "  flatpak            not installed"
+    if [ "$pm" = ostree ] || [ "$pm" = unknown ]; then
+      say "    cannot install it automatically on this system; install flatpak by hand"
+      return 1
+    fi
+    if confirm "install flatpak with $pm (needs sudo)?"; then
+      pm_install "$pm" flatpak || return 1
+    else
+      say "    skipped — flatpak entries in the brewfile will fail"
+      return 1
+    fi
+  fi
+
+  # Flatpak is useless without a remote to install from.
+  if ! flatpak remotes --columns=name 2>/dev/null | grep -qx flathub; then
+    say "  flathub remote     missing"
+    if confirm "add the flathub remote (needs sudo)?"; then
+      run sudo flatpak remote-add --if-not-exists flathub \
+        https://dl.flathub.org/repo/flathub.flatpakrepo
+    else
+      say "    skipped — flatpak entries in the brewfile will fail"
+      return 1
+    fi
+  fi
+  return 0
+}
+
+ensure_brew() {
+  local pm="$1"
+  if have brew; then return 0; fi
+
+  # Homebrew may be installed but not yet on PATH in this shell.
+  local shellenv=/home/linuxbrew/.linuxbrew/bin/brew
+  if [ -x "$shellenv" ]; then
+    eval "$("$shellenv" shellenv)"
+    have brew && return 0
+  fi
+
+  say "  homebrew           not installed"
+  # The installer needs a compiler, git and curl on Linux.
+  case "$pm" in
+    pacman) say "    prerequisites: base-devel procps-ng curl file git" ;;
+    apt) say "    prerequisites: build-essential procps curl file git" ;;
+    dnf | zypper) say "    prerequisites: @development-tools procps-ng curl file git" ;;
+  esac
+  if ! confirm "download and run the official Homebrew installer?"; then
+    say "    skipped — cannot install brewfile packages without it"
+    return 1
+  fi
+  run /bin/bash -c \
+    "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  [ -x "$shellenv" ] && eval "$("$shellenv" shellenv)"
+  have brew
+}
+
+# Report what is genuinely absent. brew bundle check cannot be used for this:
+# it reports outdated packages as "needs to be installed or updated" too, and
+# the ask here is specifically about what is missing.
+report_missing() {
+  local total=0 n
+
+  if have brew; then
+    local -a installed_f installed_c
+    mapfile -t installed_f < <(brew list --formula -1 2>/dev/null || true)
+    mapfile -t installed_c < <(brew list --cask -1 2>/dev/null || true)
+
+    n=0
+    while read -r f; do
+      [ -z "$f" ] && continue
+      printf '%s\n' "${installed_f[@]}" | grep -qxF "$(basename_of "$f")" || {
+        say "    formula  $f"
+        n=$((n + 1))
+      }
+    done < <(entries brew)
+    total=$((total + n))
+
+    n=0
+    while read -r c; do
+      [ -z "$c" ] && continue
+      printf '%s\n' "${installed_c[@]}" | grep -qxF "$c" || {
+        say "    cask     $c"
+        n=$((n + 1))
+      }
+    done < <(entries cask)
+    total=$((total + n))
+  else
+    say "    (homebrew absent — every brew/cask entry would be installed)"
+  fi
+
+  if have flatpak; then
+    local -a installed_fp
+    mapfile -t installed_fp < <(flatpak list --columns=application 2>/dev/null || true)
+    n=0
+    while read -r fp; do
+      [ -z "$fp" ] && continue
+      printf '%s\n' "${installed_fp[@]}" | grep -qxF "$fp" || {
+        say "    flatpak  $fp"
+        n=$((n + 1))
+      }
+    done < <(entries flatpak)
+    total=$((total + n))
+  else
+    say "    (flatpak absent — every flatpak entry would be installed)"
+  fi
+
+  if have code; then
+    local -a installed_ext
+    mapfile -t installed_ext < <(code --list-extensions 2>/dev/null || true)
+    n=0
+    while read -r ext; do
+      [ -z "$ext" ] && continue
+      printf '%s\n' "${installed_ext[@]}" | grep -qixF "$ext" || {
+        say "    vscode   $ext"
+        n=$((n + 1))
+      }
+    done < <(entries vscode)
+    total=$((total + n))
+  elif [ -n "$(entries vscode)" ]; then
+    say "    (no 'code' on PATH — vscode entries will be skipped by brew bundle)"
+  fi
+
+  [ "$total" -eq 0 ] && say "    nothing missing"
+  return 0
+}
+
+install_packages() {
+  if [ ! -f "$BREWFILE" ]; then
+    say "no brewfile at $BREWFILE, skipping packages" >&2
+    return 0
+  fi
+
+  local pm
+  pm="$(detect_pm)"
+  say "Packages from $BREWFILE"
+  say "  package manager    $pm"
+
+  ensure_flatpak "$pm" || true
+  if ! ensure_brew "$pm"; then
+    say ""
+    say "Skipping packages: Homebrew is not available."
+    return 0
+  fi
+
+  say ""
+  say "  missing:"
+  report_missing
+
+  # brew bundle already understands every directive in this file — brew, cask,
+  # tap, flatpak and vscode — so let it do the installing rather than
+  # reimplementing five package managers here.
+  local -a bundle_args=(install --file="$BREWFILE")
+  if [ "$DO_UPGRADE" -eq 1 ]; then
+    bundle_args+=(--upgrade)
+  else
+    # Default to installing only what is absent, which is what was asked for.
+    bundle_args+=(--no-upgrade)
+  fi
+
+  say ""
+  if [ "$DRY_RUN" -eq 1 ]; then
+    say "  would run: brew bundle ${bundle_args[*]}"
+    return 0
+  fi
+  brew bundle "${bundle_args[@]}"
+}
+
+# ------------------------------------------------------------------ main ----
+
+[ "$DRY_RUN" -eq 1 ] && say "DRY RUN — nothing will be modified" && say ""
+
+if [ "$DO_LINK" -eq 1 ]; then
+  link_dotfiles
 fi
 
-say ""
-say "Done. $linked linked, $skipped already current, $backed_up backed up."
-if [ "$backed_up" -gt 0 ]; then
-  say "Backups were saved with the suffix .bak-$STAMP"
+if [ "$DO_PACKAGES" -eq 1 ]; then
+  [ "$DO_LINK" -eq 1 ] && say ""
+  install_packages
 fi

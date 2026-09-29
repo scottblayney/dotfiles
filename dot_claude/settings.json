@@ -1,11 +1,5 @@
 {
-  "model": "opus[1m]",
-  "tui": "fullscreen",
   "theme": "dark",
-  "effortLevel": "xhigh",
   "promptSuggestionEnabled": false,
-  "awaySummaryEnabled": false,
-  "permissions": {
-    "defaultMode": "auto"
-  }
+  "awaySummaryEnabled": false
 }

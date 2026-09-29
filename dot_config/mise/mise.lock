@@ -92,6 +92,34 @@ checksum = "sha256:0f729b4b6f5f28d395c641eacc2e9ff68d0096b85aa0eec344aa62425144b
 url = "https://github.com/sharkdp/bat/releases/download/v0.26.1/bat-v0.26.1-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/sharkdp/bat/releases/assets/323549116"
 
+[[tools.btop]]
+version = "1.4.7"
+backend = "aqua:aristocratos/btop"
+specifiers = [
+    "1.4.7",
+    "latest",
+]
+
+[tools.btop."platforms.linux-arm64"]
+checksum = "sha256:6270de0ef4c84cf0eea61cb148b3ad9ae91a11e9c3309867ffc6b3751024c252"
+url = "https://github.com/aristocratos/btop/releases/download/v1.4.7/btop-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/aristocratos/btop/releases/assets/409963650"
+
+[tools.btop."platforms.linux-arm64-musl"]
+checksum = "sha256:6270de0ef4c84cf0eea61cb148b3ad9ae91a11e9c3309867ffc6b3751024c252"
+url = "https://github.com/aristocratos/btop/releases/download/v1.4.7/btop-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/aristocratos/btop/releases/assets/409963650"
+
+[tools.btop."platforms.linux-x64"]
+checksum = "sha256:5099054dd6a101bd12eb6ff3702a9a6a3f57aaa27923a0da478ae5b517faf335"
+url = "https://github.com/aristocratos/btop/releases/download/v1.4.7/btop-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/aristocratos/btop/releases/assets/409963672"
+
+[tools.btop."platforms.linux-x64-musl"]
+checksum = "sha256:5099054dd6a101bd12eb6ff3702a9a6a3f57aaa27923a0da478ae5b517faf335"
+url = "https://github.com/aristocratos/btop/releases/download/v1.4.7/btop-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/aristocratos/btop/releases/assets/409963672"
+
 [[tools.cloudflared]]
 version = "2026.9.1"
 backend = "aqua:cloudflare/cloudflared"
@@ -424,6 +452,49 @@ checksum = "sha256:35d7fe05c4dd1411ffda1e73dfc7c6f44b75c936ca51fa6595c657fdc0350
 url = "https://github.com/cli/cli/releases/download/v2.97.0/gh_2.97.0_windows_amd64.zip"
 url_api = "https://api.github.com/repos/cli/cli/releases/assets/496108319"
 provenance = "github-attestations"
+
+[[tools."github:Canop/dysk"]]
+version = "3.7.0"
+backend = "github:Canop/dysk"
+specifiers = [
+    "3.7.0",
+    "latest",
+]
+
+[tools."github:Canop/dysk"."platforms.linux-arm64"]
+checksum = "sha256:b65062c77f74b95a0b8fec58d34c84641f4a738b1fe0da92a2c94d3d81d87e26"
+url = "https://github.com/Canop/dysk/releases/download/v3.7.0/dysk_3.7.0.zip"
+url_api = "https://api.github.com/repos/Canop/dysk/releases/assets/561247710"
+
+[tools."github:Canop/dysk"."platforms.linux-arm64-musl"]
+checksum = "sha256:b65062c77f74b95a0b8fec58d34c84641f4a738b1fe0da92a2c94d3d81d87e26"
+url = "https://github.com/Canop/dysk/releases/download/v3.7.0/dysk_3.7.0.zip"
+url_api = "https://api.github.com/repos/Canop/dysk/releases/assets/561247710"
+
+[tools."github:Canop/dysk"."platforms.linux-x64"]
+checksum = "sha256:b65062c77f74b95a0b8fec58d34c84641f4a738b1fe0da92a2c94d3d81d87e26"
+url = "https://github.com/Canop/dysk/releases/download/v3.7.0/dysk_3.7.0.zip"
+url_api = "https://api.github.com/repos/Canop/dysk/releases/assets/561247710"
+
+[tools."github:Canop/dysk"."platforms.linux-x64-musl"]
+checksum = "sha256:b65062c77f74b95a0b8fec58d34c84641f4a738b1fe0da92a2c94d3d81d87e26"
+url = "https://github.com/Canop/dysk/releases/download/v3.7.0/dysk_3.7.0.zip"
+url_api = "https://api.github.com/repos/Canop/dysk/releases/assets/561247710"
+
+[tools."github:Canop/dysk"."platforms.macos-arm64"]
+checksum = "sha256:b65062c77f74b95a0b8fec58d34c84641f4a738b1fe0da92a2c94d3d81d87e26"
+url = "https://github.com/Canop/dysk/releases/download/v3.7.0/dysk_3.7.0.zip"
+url_api = "https://api.github.com/repos/Canop/dysk/releases/assets/561247710"
+
+[tools."github:Canop/dysk"."platforms.macos-x64"]
+checksum = "sha256:b65062c77f74b95a0b8fec58d34c84641f4a738b1fe0da92a2c94d3d81d87e26"
+url = "https://github.com/Canop/dysk/releases/download/v3.7.0/dysk_3.7.0.zip"
+url_api = "https://api.github.com/repos/Canop/dysk/releases/assets/561247710"
+
+[tools."github:Canop/dysk"."platforms.windows-x64"]
+checksum = "sha256:b65062c77f74b95a0b8fec58d34c84641f4a738b1fe0da92a2c94d3d81d87e26"
+url = "https://github.com/Canop/dysk/releases/download/v3.7.0/dysk_3.7.0.zip"
+url_api = "https://api.github.com/repos/Canop/dysk/releases/assets/561247710"
 
 [[tools."github:neovim/neovim"]]
 version = "0.12.0"
@@ -1338,6 +1409,49 @@ url = "https://github.com/siderolabs/talos/releases/download/v1.14.1/talosctl-wi
 url_api = "https://api.github.com/repos/siderolabs/talos/releases/assets/566050762"
 provenance = "cosign"
 
+[[tools.tealdeer]]
+version = "1.9.0"
+backend = "aqua:tealdeer-rs/tealdeer"
+specifiers = [
+    "1.9.0",
+    "latest",
+]
+
+[tools.tealdeer."platforms.linux-arm64"]
+checksum = "sha256:a748f181c00933980cb850f4a24199c45900fc523787f6c524232a6bfc66b895"
+url = "https://github.com/tealdeer-rs/tealdeer/releases/download/v1.9.0/tealdeer-linux-aarch64-musl"
+url_api = "https://api.github.com/repos/tealdeer-rs/tealdeer/releases/assets/527792762"
+
+[tools.tealdeer."platforms.linux-arm64-musl"]
+checksum = "sha256:a748f181c00933980cb850f4a24199c45900fc523787f6c524232a6bfc66b895"
+url = "https://github.com/tealdeer-rs/tealdeer/releases/download/v1.9.0/tealdeer-linux-aarch64-musl"
+url_api = "https://api.github.com/repos/tealdeer-rs/tealdeer/releases/assets/527792762"
+
+[tools.tealdeer."platforms.linux-x64"]
+checksum = "sha256:dc7263b550e90c0689ea2cb434e3144469805d5dddecbb1f7fc534e1185b7408"
+url = "https://github.com/tealdeer-rs/tealdeer/releases/download/v1.9.0/tealdeer-linux-x86_64-musl"
+url_api = "https://api.github.com/repos/tealdeer-rs/tealdeer/releases/assets/527792725"
+
+[tools.tealdeer."platforms.linux-x64-musl"]
+checksum = "sha256:dc7263b550e90c0689ea2cb434e3144469805d5dddecbb1f7fc534e1185b7408"
+url = "https://github.com/tealdeer-rs/tealdeer/releases/download/v1.9.0/tealdeer-linux-x86_64-musl"
+url_api = "https://api.github.com/repos/tealdeer-rs/tealdeer/releases/assets/527792725"
+
+[tools.tealdeer."platforms.macos-arm64"]
+checksum = "sha256:e6c6d9bf6d0267a38d5709c2b8334467fedd456927429ab426ff823201c13a40"
+url = "https://github.com/tealdeer-rs/tealdeer/releases/download/v1.9.0/tealdeer-macos-aarch64"
+url_api = "https://api.github.com/repos/tealdeer-rs/tealdeer/releases/assets/527792693"
+
+[tools.tealdeer."platforms.macos-x64"]
+checksum = "sha256:58337de7ad3446235f1493e02456002a9aa4e915cf70347d12334aa5fe08bfe5"
+url = "https://github.com/tealdeer-rs/tealdeer/releases/download/v1.9.0/tealdeer-macos-x86_64"
+url_api = "https://api.github.com/repos/tealdeer-rs/tealdeer/releases/assets/527792716"
+
+[tools.tealdeer."platforms.windows-x64"]
+checksum = "sha256:23fb76fb683d76dd413cb470b1a3c32157e585edec7d740e73da1aa9c6406dfe"
+url = "https://github.com/tealdeer-rs/tealdeer/releases/download/v1.9.0/tealdeer-windows-x86_64-msvc.exe"
+url_api = "https://api.github.com/repos/tealdeer-rs/tealdeer/releases/assets/527792764"
+
 [[tools.tree-sitter]]
 version = "0.27.0"
 backend = "aqua:tree-sitter/tree-sitter"
@@ -1409,7 +1523,7 @@ url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/522028007"
 provenance = "cosign"
 
 [tools.yq."platforms.linux-x64"]
-checksum = "sha512:508f4ee34c6d093d136ff3c1b36db4105e686c3d68d435c064448ba16e2616d528efafb2cb0a1890b7724890373a226a38b7da27e6796396ee759bed39a8c671"
+checksum = "sha256:c5f056448f973ae7d39b5401949648a78f2dc1947d6a8eb65be60d5c504b9385"
 url = "https://github.com/mikefarah/yq/releases/download/v4.53.6/yq_linux_amd64"
 url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/522028022"
 provenance = "cosign"

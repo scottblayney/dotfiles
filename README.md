@@ -1,5 +1,9 @@
 # dotfiles
 
+Forked from [rio/dotfiles](https://github.com/rio/dotfiles) (tracked as the `upstream` remote; merge updates with `git fetch upstream && git merge upstream/main`). My previous symlink-based setup lives on the `legacy` branch.
+
+Local changes from upstream: my git/jj identity, trimmed Claude Code settings, no voxtype/ydotoold, no gpg-agent SSH (ssh-agent is used instead), tmux tolerates a missing powerline.
+
 This repository contains my personal dotfiles, managed with [chezmoi](https://www.chezmoi.io/), and designed for seamless use across local, containerized, and cloud development environments. It is structured to work out-of-the-box with:
 
 - **chezmoi**: For dotfile management and templating

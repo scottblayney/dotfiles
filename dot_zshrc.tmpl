@@ -58,6 +58,17 @@ fi
 bindkey -v
 export KEYTIMEOUT=1 # make switching between modes faster
 
+# Home/End/Delete keys (terminfo, so they work under tmux too)
+for keymap in viins vicmd; do
+  [[ -n ${terminfo[khome]} ]] && bindkey -M $keymap "${terminfo[khome]}" beginning-of-line
+  [[ -n ${terminfo[kend]}  ]] && bindkey -M $keymap "${terminfo[kend]}"  end-of-line
+  [[ -n ${terminfo[kdch1]} ]] && bindkey -M $keymap "${terminfo[kdch1]}" delete-char
+done
+# some terminals send the other variants
+for keymap in viins vicmd; do
+  bindkey -M $keymap '^[[1~' beginning-of-line '^[[4~' end-of-line '^[[H' beginning-of-line '^[[F' end-of-line '^[OH' beginning-of-line '^[OF' end-of-line
+done
+
 # enable the starship prompt
 if command -v starship > /dev/null ; then
   eval "$(starship init zsh)"
@@ -87,6 +98,12 @@ fi
 ## bat on debian based systems is batcat. Fix that.
 if command -v batcat > /dev/null ; then
   alias cat="batcat"
+fi
+
+# Jan (flatpak) launchers
+if [[ -d /var/lib/flatpak/app/ai.jan.Jan || -d $HOME/.local/share/flatpak/app/ai.jan.Jan ]] ; then
+  alias jan='flatpak run ai.jan.Jan'
+  alias jan-cli='flatpak run --command=jan-cli ai.jan.Jan'
 fi
 
 if command -v dagger > /dev/null ; then 

@@ -11,3 +11,11 @@ Library/
 .config/nushell
 .local/share/nushell
 {{ end }}
+{{- /* Desktop configs from my Arch install: only on Arch or Arch-based distros (ID or ID_LIKE in /etc/os-release) */}}
+{{ $osRelease := .chezmoi.osRelease | default dict -}}
+{{ if not (or (eq (get $osRelease "id") "arch") (has "arch" (splitList " " (get $osRelease "idLike")))) -}}
+.config/hypr
+.config/waybar
+.config/alacritty/alacritty.toml
+.config/alacritty/themes
+{{ end -}}

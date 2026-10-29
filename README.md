@@ -4,6 +4,8 @@ Forked from [rio/dotfiles](https://github.com/rio/dotfiles) (tracked as the `ups
 
 Local changes from upstream: my git/jj identity, trimmed Claude Code settings, no voxtype/ydotoold, no gpg-agent SSH (ssh-agent is used instead), tmux tolerates a missing powerline.
 
+Arch-only: Hyprland (hyprland.lua, hypridle, hyprlock), waybar and alacritty.toml (plus the alacritty-theme collection, fetched as an external) are installed only when `/etc/os-release` has `ID=arch` or `arch` in `ID_LIKE`. See `.chezmoiignore`.
+
 This repository contains my personal dotfiles, managed with [chezmoi](https://www.chezmoi.io/), and designed for seamless use across local, containerized, and cloud development environments. It is structured to work out-of-the-box with:
 
 - **chezmoi**: For dotfile management and templating

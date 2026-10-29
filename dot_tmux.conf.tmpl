@@ -6,6 +6,17 @@ bind-key -r -T prefix l select-pane -R
 
 set-option -sg escape-time 10
 
+set -g mouse on
+set -g history-limit 50000
+
+{{ if eq .chezmoi.os "linux" -}}
+# copy-mode: v selects, C-v toggles block, y copies to the Wayland clipboard
+set -g copy-command "wl-copy"
+bind -T copy-mode-vi v send-keys -X begin-selection
+bind -T copy-mode-vi C-v send-keys -X rectangle-toggle
+bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "wl-copy"
+{{ end -}}
+
 {{ if and .chezmoi.osRelease (eq .chezmoi.osRelease.id "ubuntu" "debian") -}}
 source /usr/share/powerline/bindings/tmux/powerline.conf
 
